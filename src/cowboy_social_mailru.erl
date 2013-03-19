@@ -1,8 +1,8 @@
 %%
-%% @doc Handler for social login via Google.
+%% @doc Handler for social login via Mail.Ru.
 %%
 
--module(cowboy_social_google).
+-module(cowboy_social_mailru).
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -behaviour(cowboy_http_handler).
@@ -39,8 +39,7 @@ handle_request(<<"login">>, Req, Opts)  ->
       (cowboy_request:urlencode([
         {<<"client_id">>, key(client_id, Opts)},
         {<<"redirect_uri">>, key(callback_uri, Opts)},
-        {<<"response_type">>, <<"code">>},
-        {<<"scope">>, key(scope, Opts)}
+        {<<"response_type">>, <<"code">>}
       ]))/binary >>,
   cowboy_req:reply(303, [{<<"location">>, AuthUrl}], <<>>, Req);
 
@@ -86,9 +85,18 @@ get_access_token(Code, Req, Opts) ->
 %% use auth token to extract info from user profile
 %%
 get_user_profile(Auth, Req, Opts) ->
-  AccessToken = key(<<"access_token">>, Auth),
+  Sig = md5hex(<<
+      "app_id=", (key(client_id, Opts))/binary,
+      "method=users.getInfosecure=1session_key=",
+      (key(<<"access_token">>, Auth))/binary,
+      (key(secret_key, Opts))/binary >>
+  ),
   try cowboy_request:get_json(profile_url(), [
-      {<<"access_token">>, AccessToken}
+      {<<"app_id">>, key(client_id, Opts)},
+      {<<"method">>, <<"users.getInfo">>},
+      {<<"secure">>, <<"1">>},
+      {<<"session_key">>, key(<<"access_token">>, Auth)},
+      {<<"sig">>, Sig}
     ])
   of
     {ok, Profile} ->
@@ -116,6 +124,10 @@ key(Key, List) ->
   {_, Value} = lists:keyfind(Key, 1, List),
   Value.
 
+md5hex(Bin) ->
+  list_to_binary(lists:flatten([io_lib:format("~2.16.0b",[N]) ||
+        N <- binary_to_list(erlang:md5(binary_to_list(Bin)))])).
+
 %%
 %%------------------------------------------------------------------------------
 %% Provider details
@@ -123,21 +135,21 @@ key(Key, List) ->
 %%
 
 authorize_url() ->
-  <<"https://accounts.google.com/o/oauth2/auth">>.
+  <<"https://connect.mail.ru/oauth/authorize">>.
 
 token_url() ->
-  <<"https://accounts.google.com/o/oauth2/token">>.
+  <<"https://connect.mail.ru/oauth/token">>.
 
 profile_url() ->
-  <<"https://www.googleapis.com/oauth2/v1/userinfo">>.
+  <<"http://www.appsmail.ru/platform/api">>.
 
-normalize_profile(_Auth, Raw) ->
+normalize_profile(_Auth, [Raw]) ->
   [
-    {id, << "google:", (key(<<"id">>, Raw))/binary >>},
-    {provider, <<"google">>},
+    {id, << "mailru:", (key(<<"uid">>, Raw))/binary >>},
+    {provider, <<"mailru">>},
     {email, key(<<"email">>, Raw)},
-    {name, key(<<"name">>, Raw)},
-    {avatar, key(<<"picture">>, Raw)},
-    {gender, key(<<"gender">>, Raw)},
-    {locale, key(<<"locale">>, Raw)}
+    {name, << (key(<<"first_name">>, Raw))/binary, " ",
+              (key(<<"last_name">>, Raw))/binary >>},
+    {avatar, key(<<"pic">>, Raw)},
+    {gender, case key(<<"sex">>, Raw) of 1 -> <<"female">>; _ -> <<"male">> end}
   ].

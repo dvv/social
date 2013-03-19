@@ -1,8 +1,8 @@
 %%
-%% @doc Handler for social login via Google.
+%% @doc Handler for social login via VKontakte.
 %%
 
--module(cowboy_social_google).
+-module(cowboy_social_vkontakte).
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -behaviour(cowboy_http_handler).
@@ -39,8 +39,7 @@ handle_request(<<"login">>, Req, Opts)  ->
       (cowboy_request:urlencode([
         {<<"client_id">>, key(client_id, Opts)},
         {<<"redirect_uri">>, key(callback_uri, Opts)},
-        {<<"response_type">>, <<"code">>},
-        {<<"scope">>, key(scope, Opts)}
+        {<<"response_type">>, <<"code">>}
       ]))/binary >>,
   cowboy_req:reply(303, [{<<"location">>, AuthUrl}], <<>>, Req);
 
@@ -88,7 +87,8 @@ get_access_token(Code, Req, Opts) ->
 get_user_profile(Auth, Req, Opts) ->
   AccessToken = key(<<"access_token">>, Auth),
   try cowboy_request:get_json(profile_url(), [
-      {<<"access_token">>, AccessToken}
+      {<<"access_token">>, AccessToken},
+      {<<"fields">>, key(scope, Opts)}
     ])
   of
     {ok, Profile} ->
@@ -123,21 +123,24 @@ key(Key, List) ->
 %%
 
 authorize_url() ->
-  <<"https://accounts.google.com/o/oauth2/auth">>.
+  <<"https://oauth.vk.com/authorize">>.
 
 token_url() ->
-  <<"https://accounts.google.com/o/oauth2/token">>.
+  <<"https://oauth.vk.com/access_token">>.
 
 profile_url() ->
-  <<"https://www.googleapis.com/oauth2/v1/userinfo">>.
+  <<"https://api.vk.com/method/users.get">>.
 
-normalize_profile(_Auth, Raw) ->
+normalize_profile(_Auth, Raw0) ->
+  % NB: provider returns list of data for uids; we need only the first
+  [Raw] = key(<<"response">>, Raw0),
   [
-    {id, << "google:", (key(<<"id">>, Raw))/binary >>},
-    {provider, <<"google">>},
-    {email, key(<<"email">>, Raw)},
-    {name, key(<<"name">>, Raw)},
-    {avatar, key(<<"picture">>, Raw)},
-    {gender, key(<<"gender">>, Raw)},
-    {locale, key(<<"locale">>, Raw)}
+    {id, << "vkontakte:",
+      (list_to_binary(integer_to_list(key(<<"uid">>, Raw))))/binary >>},
+    {provider, <<"vkontakte">>},
+    % {email, key(<<"email">>, Raw)},
+    {name, << (key(<<"first_name">>, Raw))/binary, " ",
+              (key(<<"last_name">>, Raw))/binary >>},
+    {avatar, key(<<"photo">>, Raw)},
+    {gender, case key(<<"sex">>, Raw) of 1 -> <<"female">>; _ -> <<"male">> end}
   ].
