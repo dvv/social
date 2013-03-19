@@ -1,4 +1,4 @@
-{application, cowboy_social, [
+{application, social, [
   {description, "OAuth2 social login client for Cowboy web server"},
   {vsn, "0.0.1"},
   {registered, []},

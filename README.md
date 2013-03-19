@@ -7,6 +7,7 @@ Usage
 --------------
 
 Register your application with callback URI pointing back to your site plus `/auth/:provider/callback`, and supply `ClientID` and `ClientSecret` in provider's configuration proplist.
+Ensure you started erlang ssl appication.
 
 Then in your client-side code:
 ```html
