@@ -92,7 +92,7 @@ get_user_profile(Auth, Req, Opts) ->
     ])
   of
     {ok, Profile} ->
-      finish({ok, normalize_profile(Auth, Profile)}, Req, Opts);
+      finish({ok, normalize_auth(Auth), normalize_profile(Profile)}, Req, Opts);
     _ ->
       finish({error, noprofile}, Req, Opts)
   catch _:_ ->
@@ -131,7 +131,14 @@ token_url() ->
 profile_url() ->
   <<"https://api.vk.com/method/users.get">>.
 
-normalize_profile(_Auth, Raw0) ->
+normalize_auth(Auth) ->
+  [
+    {access_token, key(<<"access_token">>, Auth)},
+    {token_type, <<"Bearer">>},
+    {expires_in, key(<<"expires_in">>, Auth)}
+  ].
+
+normalize_profile(Raw0) ->
   % NB: provider returns list of data for uids; we need only the first
   [Raw] = key(<<"response">>, Raw0),
   [

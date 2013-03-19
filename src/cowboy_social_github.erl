@@ -90,7 +90,7 @@ get_user_profile(Auth, Req, Opts) ->
     ])
   of
     {ok, Profile} ->
-      finish({ok, normalize_profile(Auth, Profile)}, Req, Opts);
+      finish({ok, normalize_auth(Auth), normalize_profile(Profile)}, Req, Opts);
     _ ->
       finish({error, noprofile}, Req, Opts)
   catch _:_ ->
@@ -129,7 +129,14 @@ token_url() ->
 profile_url() ->
   <<"https://api.github.com/user">>.
 
-normalize_profile(_Auth, Raw) ->
+normalize_auth(Auth) ->
+  [
+    {access_token, key(<<"access_token">>, Auth)},
+    {token_type, key(<<"token_type">>, Auth)},
+    {expires_in, 0}
+  ].
+
+normalize_profile(Raw) ->
   [
     {id, << "github:",
       (list_to_binary(integer_to_list(key(<<"id">>, Raw))))/binary >>},

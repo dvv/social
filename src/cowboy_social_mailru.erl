@@ -89,8 +89,7 @@ get_user_profile(Auth, Req, Opts) ->
       "app_id=", (key(client_id, Opts))/binary,
       "method=users.getInfosecure=1session_key=",
       (key(<<"access_token">>, Auth))/binary,
-      (key(secret_key, Opts))/binary >>
-  ),
+      (key(secret_key, Opts))/binary >>),
   try cowboy_request:get_json(profile_url(), [
       {<<"app_id">>, key(client_id, Opts)},
       {<<"method">>, <<"users.getInfo">>},
@@ -100,7 +99,7 @@ get_user_profile(Auth, Req, Opts) ->
     ])
   of
     {ok, Profile} ->
-      finish({ok, normalize_profile(Auth, Profile)}, Req, Opts);
+      finish({ok, normalize_auth(Auth), normalize_profile(Profile)}, Req, Opts);
     _ ->
       finish({error, noprofile}, Req, Opts)
   catch _:_ ->
@@ -143,7 +142,14 @@ token_url() ->
 profile_url() ->
   <<"http://www.appsmail.ru/platform/api">>.
 
-normalize_profile(_Auth, [Raw]) ->
+normalize_auth(Auth) ->
+  [
+    {access_token, key(<<"access_token">>, Auth)},
+    {token_type, key(<<"token_type">>, Auth)},
+    {expires_in, key(<<"expires_in">>, Auth)}
+  ].
+
+normalize_profile([Raw]) ->
   [
     {id, << "mailru:", (key(<<"uid">>, Raw))/binary >>},
     {provider, <<"mailru">>},
