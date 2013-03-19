@@ -1,8 +1,8 @@
 %%
-%% @doc Handler for social login via Google.
+%% @doc Handler for social login via Github.
 %%
 
--module(cowboy_social_google).
+-module(cowboy_social_github).
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -behaviour(cowboy_http_handler).
@@ -39,7 +39,6 @@ handle_request(<<"login">>, Req, Opts)  ->
       (cowboy_request:urlencode([
         {<<"client_id">>, key(client_id, Opts)},
         {<<"redirect_uri">>, key(callback_uri, Opts)},
-        {<<"response_type">>, <<"code">>},
         {<<"scope">>, key(scope, Opts)}
       ]))/binary >>,
   cowboy_req:reply(303, [{<<"location">>, AuthUrl}], <<>>, Req);
@@ -70,8 +69,7 @@ get_access_token(Code, Req, Opts) ->
       {<<"code">>, Code},
       {<<"client_id">>, key(client_id, Opts)},
       {<<"client_secret">>, key(client_secret, Opts)},
-      {<<"redirect_uri">>, key(callback_uri, Opts)},
-      {<<"grant_type">>, <<"authorization_code">>}
+      {<<"redirect_uri">>, key(callback_uri, Opts)}
     ])
   of
     {ok, Auth} ->
@@ -123,21 +121,20 @@ key(Key, List) ->
 %%
 
 authorize_url() ->
-  <<"https://accounts.google.com/o/oauth2/auth">>.
+  <<"https://github.com/login/oauth/authorize">>.
 
 token_url() ->
-  <<"https://accounts.google.com/o/oauth2/token">>.
+  <<"https://github.com/login/oauth/access_token">>.
 
 profile_url() ->
-  <<"https://www.googleapis.com/oauth2/v1/userinfo">>.
+  <<"https://api.github.com/user">>.
 
 normalize_profile(_Auth, Raw) ->
   [
-    {id, << "google:", (key(<<"id">>, Raw))/binary >>},
-    {provider, <<"google">>},
+    {id, << "github:",
+      (list_to_binary(integer_to_list(key(<<"id">>, Raw))))/binary >>},
+    {provider, <<"github">>},
     {email, key(<<"email">>, Raw)},
     {name, key(<<"name">>, Raw)},
-    {avatar, key(<<"picture">>, Raw)},
-    {gender, key(<<"gender">>, Raw)},
-    {locale, key(<<"locale">>, Raw)}
+    {avatar, key(<<"avatar_url">>, Raw)}
   ].

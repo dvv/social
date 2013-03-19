@@ -1,8 +1,8 @@
 %%
-%% @doc Handler for social login via Google.
+%% @doc Handler for social login via Yandex.
 %%
 
--module(cowboy_social_google).
+-module(cowboy_social_yandex).
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -behaviour(cowboy_http_handler).
@@ -88,7 +88,8 @@ get_access_token(Code, Req, Opts) ->
 get_user_profile(Auth, Req, Opts) ->
   AccessToken = key(<<"access_token">>, Auth),
   try cowboy_request:get_json(profile_url(), [
-      {<<"access_token">>, AccessToken}
+      {<<"oauth_token">>, AccessToken},
+      {<<"format">>, <<"json">>}
     ])
   of
     {ok, Profile} ->
@@ -123,21 +124,20 @@ key(Key, List) ->
 %%
 
 authorize_url() ->
-  <<"https://accounts.google.com/o/oauth2/auth">>.
+  <<"https://oauth.yandex.ru/authorize">>.
 
 token_url() ->
-  <<"https://accounts.google.com/o/oauth2/token">>.
+  <<"https://oauth.yandex.ru/token">>.
 
 profile_url() ->
-  <<"https://www.googleapis.com/oauth2/v1/userinfo">>.
+  <<"https://login.yandex.ru/info">>.
 
 normalize_profile(_Auth, Raw) ->
   [
-    {id, << "google:", (key(<<"id">>, Raw))/binary >>},
-    {provider, <<"google">>},
-    {email, key(<<"email">>, Raw)},
-    {name, key(<<"name">>, Raw)},
-    {avatar, key(<<"picture">>, Raw)},
-    {gender, key(<<"gender">>, Raw)},
-    {locale, key(<<"locale">>, Raw)}
+    {id, << "yandex:", (key(<<"id">>, Raw))/binary >>},
+    {provider, <<"yandex">>},
+    {email, key(<<"default_email">>, Raw)},
+    {name, key(<<"real_name">>, Raw)},
+    % {avatar, key(<<"picture">>, Raw)},
+    {gender, case key(<<"sex">>, Raw) of 1 -> <<"female">>; _ -> <<"male">> end}
   ].
