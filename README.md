@@ -38,7 +38,7 @@ Supported providers
 - PayPal
 - Vkontakte
 - Yandex
-- add more, this very simple
+- add more, this is very simple
 
 License (MIT)
 -------

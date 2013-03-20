@@ -52,7 +52,11 @@ handle_request(<<"callback">>, Req, Opts) ->
     {undefined, Req2} ->
       finish({error, nocode}, Req2, Opts);
     {Code, Req2} ->
-      get_access_token(Code, Req2, Opts)
+      try get_access_token(Code, Req2, Opts) of
+        Result -> Result
+      catch _:_ ->
+        finish({error, notoken}, Req2, Opts)
+      end
   end;
 
 %%
