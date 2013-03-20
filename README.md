@@ -18,45 +18,27 @@ Router configuration
 --------------
 
 ```erlang
-{"/auth/google/:action", cowboy_social_google, [
+{"/auth/google/:action", cowboy_social, [
+  {provider, cowboy_social_google},
   % At the end of the flow this handler will be called as
   % Mod:Fun({ok, Auth, Profile}, Req) or Mod:Fun({error, Reason}, Req)
   {handler, {Mod, Fun}},
-  {client_id, <<"440647648374.apps.googleusercontent.com">>},
+  {client_id, <<"...">>},
   {client_secret, <<"...">>},
   {scope, <<"https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile">>},
   {callback_uri, <<"/auth/google/callback">>}
 ]}.
-{"/auth/github/:action", cowboy_social_github, [
-  {handler, {Mod, Fun}},
-  {client_id, <<"883b68d607abddc24f77">>},
-  {client_secret, <<"...">>},
-  {scope, <<>>},
-  {callback_uri, <<"/auth/github/callback">>}
-]}.
-{"/auth/yandex/:action", cowboy_social_yandex, [
-  {handler, {Mod, Fun}},
-  {client_id, <<"f44bd59ddfbe408ab1d29151126385a6">>},
-  {client_secret, <<"...">>},
-  {scope, <<>>},
-  {callback_uri, <<"/auth/yandex/callback">>}
-]}.
-{"/auth/vkontakte/:action", cowboy_social_vkontakte, [
-  {handler, {Mod, Fun}},
-  {client_id, <<"3473116">>},
-  {client_secret, <<"...">>},
-  {scope, <<"uid,first_name,last_name,sex,photo">>},
-  {callback_uri, <<"/auth/vkontakte/callback">>}
-]}.
-{"/auth/mailru/:action", cowboy_social_mailru, [
-  {handler, {Mod, Fun}},
-  {client_id, <<"701614">>},
-  {client_secret, <<"...">>},
-  {secret_key, <<"...">>},
-  {scope, <<>>},
-  {callback_uri, <<"/auth/mailru/callback">>}
-]}.
 ```
+
+Supported providers
+--------------
+- Github
+- Google
+- Mail.ru
+- PayPal
+- Vkontakte
+- Yandex
+- add more, this very simple
 
 License (MIT)
 -------

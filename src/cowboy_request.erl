@@ -56,7 +56,7 @@ request(Method, URL, Headers, Body) ->
 % pecypc_log:info({reqerr, _Else}),
       {error, failed}
   end,
-% pecypc_log:info({res, _ResHeaders, Result}),
+% pecypc_log:info({res, Result}),
   Result.
 
 urlencode(Bin) when is_binary(Bin) ->

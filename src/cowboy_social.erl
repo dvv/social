@@ -15,99 +15,73 @@
 %%
 
 init(_Transport, Req, Opts) ->
-  {ok, Req, Opts}.
+  % compose full redirect URI
+  case key(callback_uri, Opts) of
+    << "http://", _/binary >> -> {ok, Req, Opts};
+    << "https://", _/binary >> -> {ok, Req, Opts};
+    Relative ->
+      {SelfUri, Req2} = cowboy_req:host_url(Req),
+      {ok, Req2, lists:keyreplace(callback_uri, 1, Opts,
+        {callback_uri, << SelfUri/binary, Relative/binary >>})}
+  end.
 
 terminate(_Reason, _Req, _State) ->
   ok.
 
-%%
-%% {"/auth/:provider/:action", cowboy_social, [...]}.
-%%
 handle(Req, Opts) ->
-  Provider = key(provider, Opts),
   % extract flow action name
   {Action, Req2} = cowboy_req:binding(action, Req),
-  % construct callback URI
-  {SelfUri, Req3} = cowboy_req:host_url(Req2),
-  [FullPath] = cowboy_req:get([path], Req3),
-  CallbackUrl = << SelfUri/binary, FullPath/binary >>,
   % perform flow action
-  {ok, Req4} = handle_request(Action, Provider, Opts, CallbackUrl, Req3),
-  {ok, Req4, undefined}.
+  {ok, Req3} = handle_request(Action, Req2, Opts),
+  {ok, Req3, undefined}.
 
 %%
 %% redirect to provider authorization page, expect it to redirect
 %% to our next handler
 %%
-handle_request(<<"login">>, P, O, U, Req)  ->
-  AuthUrl = << (cowboy_social_providers:authorize_url(P))/binary, $?,
-      (cowboy_request:urlencode([
-        {<<"client_id">>, key(client_id, O)},
-        {<<"redirect_uri">>, binary:replace(U, <<"/login">>, <<"/callback">>)},
-        {<<"response_type">>, <<"code">>},
-        {<<"scope">>, key(scope, O)}
-      ]))/binary >>,
-  cowboy_req:reply(303, [{<<"location">>, AuthUrl}], <<>>, Req);
+handle_request(<<"login">>, Req, Opts)  ->
+  cowboy_req:reply(302, [
+      {<<"location">>, (key(provider, Opts)):get_authorize_url(Opts)}
+    ], <<>>, Req);
 
 %%
 %% provider redirected back to us with authorization code
 %%
-handle_request(<<"callback">>, P, O, U, Req) ->
+handle_request(<<"callback">>, Req, Opts) ->
   case cowboy_req:qs_val(<<"code">>, Req) of
     {undefined, Req2} ->
-      finish({error, nocode}, Req2);
+      finish({error, nocode}, Req2, Opts);
     {Code, Req2} ->
-      get_access_token(P, O, U, Code, Req2)
+      get_access_token(Code, Req2, Opts)
   end;
 
 %%
 %% catchall
 %%
-handle_request(_, _, _, _, Req) ->
+handle_request(_, Req, _) ->
   {ok, Req2} = cowboy_req:reply(404, [], <<>>, Req),
   {ok, Req2, undefined}.
 
 %%
 %% exchange authorization code for auth token
 %%
-get_access_token(P, O, U, Code, Req) ->
-  case cowboy_request:post_for_json(cowboy_social_providers:token_url(P), [
-      {<<"code">>, Code},
-      {<<"client_id">>, key(client_id, O)},
-      {<<"client_secret">>, key(client_secret, O)},
-      {<<"redirect_uri">>, U},
-      {<<"grant_type">>, <<"authorization_code">>}
-    ])
-  of
-    {ok, Auth} ->
-      get_user_profile(P, O, Auth, Req);
-    _ ->
-      finish({error, notoken}, Req)
-  end.
+get_access_token(Code, Req, Opts) ->
+  {ok, Auth} = (key(provider, Opts)):get_access_token(Code, Opts),
+  get_user_profile(Auth, Req, Opts).
 
 %%
-%% use auth tocken to extract info from user profile
+%% use auth token to extract info from user profile
 %%
-get_user_profile(P, O, Auth, Req) ->
-  AccessToken = key(<<"access_token">>, Auth),
-  case cowboy_request:get_json(cowboy_social_providers:profile_url(P), [
-      {<<"access_token">>, AccessToken}
-        | cowboy_social_providers:custom_data(P, AccessToken, O)
-    ])
-  of
-    {ok, Profile} ->
-      finish({ok, cowboy_social_providers:normalize_profile(P, Auth, Profile)},
-          Req);
-    _ ->
-      finish({error, noprofile}, Req)
-  end.
+get_user_profile(Auth, Req, Opts) ->
+  {ok, Profile} = (key(provider, Opts)):get_user_profile(Auth, Opts),
+  finish({ok, Auth, Profile}, Req, Opts).
 
 %%
 %% finalize application flow by calling callback handler
 %%
-finish(Status, Req) ->
-  {{M, F}, Req2} = cowboy_req:meta(callback, Req),
-  M:F(Status, Req2).
+finish(Status, Req, Opts) ->
+  {M, F} = key(handler, Opts),
+  M:F(Status, Req).
 
 %%
 %%------------------------------------------------------------------------------

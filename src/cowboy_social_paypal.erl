@@ -1,8 +1,8 @@
 %%
-%% @doc Handler for social login via Github.
+%% @doc Handler for social login via PayPal.
 %%
 
--module(cowboy_social_github).
+-module(cowboy_social_paypal).
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -export([
@@ -21,10 +21,11 @@
 %% get URL of provider authorization page
 %%
 get_authorize_url(Opts)  ->
-  << "https://github.com/login/oauth/authorize", $?,
+  << "https://identity.x.com/xidentity/resources/authorize", $?,
     (cowboy_request:urlencode([
       {client_id, key(client_id, Opts)},
       {redirect_uri, key(callback_uri, Opts)},
+      {response_type, <<"code">>},
       {scope, key(scope, Opts)}
     ]))/binary >>.
 
@@ -33,33 +34,34 @@ get_authorize_url(Opts)  ->
 %%
 get_access_token(Code, Opts) ->
   {ok, Auth} = cowboy_request:post_for_json(
-    <<"https://github.com/login/oauth/access_token">>, [
+    <<"https://identity.x.com/xidentity/oauthtokenservice">>, [
       {code, Code},
       {client_id, key(client_id, Opts)},
       {client_secret, key(client_secret, Opts)},
-      {redirect_uri, key(callback_uri, Opts)}
+      {redirect_uri, key(callback_uri, Opts)},
+      {grant_type, <<"authorization_code">>}
     ]),
   {ok, [
     {access_token, key(<<"access_token">>, Auth)},
-    {token_type, key(<<"token_type">>, Auth)},
-    {expires_in, 0}
+    {token_type, <<"Bearer">>},
+    {expires_in, key(<<"expires_in">>, Auth)}
   ]}.
 
 %%
 %% extract info from user profile
 %%
 get_user_profile(Auth, _Opts) ->
-  {ok, Profile} = cowboy_request:get_json(
-    <<"https://api.github.com/user">>, [
-      {access_token, key(access_token, Auth)}
+  {ok, Result} = cowboy_request:get_json(
+    <<"https://identity.x.com/xidentity/resources/profile/me">>, [
+      {oauth_token, key(access_token, Auth)}
     ]),
+  % NB: provider returns {status: ..., identity: Profile}
+  Profile = key(<<"identity">>, Result),
   {ok, [
-    {id, << "github:",
-      (list_to_binary(integer_to_list(key(<<"id">>, Profile))))/binary >>},
-    {provider, <<"github">>},
-    {email, key(<<"email">>, Profile)},
-    {name, key(<<"name">>, Profile)},
-    {avatar, key(<<"avatar_url">>, Profile)}
+    {id, << "paypal:", (key(<<"userId">>, Profile))/binary >>},
+    {provider, <<"paypal">>},
+    {email, hd(key(<<"emails">>, Profile))},
+    {name, key(<<"fullName">>, Profile)}
   ]}.
 
 %%
