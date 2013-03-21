@@ -32,6 +32,7 @@ Router configuration
 
 Supported providers
 --------------
+- Facebook
 - Github
 - Google
 - Mail.ru

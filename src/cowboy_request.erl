@@ -77,8 +77,7 @@ parse({ok, JSON}) ->
   case jsx:decode(JSON, [{error_handler, fun(_, _, _) -> {error, badarg} end}])
   of
     {error, _} ->
-      % {ok, cowboy_http:x_www_form_urlencoded(JSON)};
-      {error, badarg};
+      {ok, cowboy_http:x_www_form_urlencoded(JSON)};
     Hash ->
       {ok, Hash}
   end;

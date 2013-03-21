@@ -15,6 +15,7 @@
 %%
 
 init(_Transport, Req, Opts) ->
+% pecypc_log:info({url, cowboy_req:get([path, qs_vals], Req)}),
   % compose full redirect URI
   case key(callback_uri, Opts) of
     << "http://", _/binary >> -> {ok, Req, Opts};
@@ -40,6 +41,7 @@ handle(Req, Opts) ->
 %% to our next handler
 %%
 handle_request(<<"login">>, Req, Opts)  ->
+% pecypc_log:info({login, cowboy_req:get([path, qs_vals], Req), Opts}),
   cowboy_req:reply(302, [
       {<<"location">>, (key(provider, Opts)):get_authorize_url(Opts)}
     ], <<>>, Req);
@@ -48,10 +50,12 @@ handle_request(<<"login">>, Req, Opts)  ->
 %% provider redirected back to us with authorization code
 %%
 handle_request(<<"callback">>, Req, Opts) ->
+% pecypc_log:info({callback, cowboy_req:get([path, qs_vals], Req), Opts}),
   case cowboy_req:qs_val(<<"code">>, Req) of
     {undefined, Req2} ->
       finish({error, nocode}, Req2, Opts);
     {Code, Req2} ->
+      % get_access_token(Code, Req2, Opts)
       try get_access_token(Code, Req2, Opts) of
         Result -> Result
       catch _:_ ->
@@ -85,7 +89,15 @@ get_user_profile(Auth, Req, Opts) ->
 %%
 finish(Status, Req, Opts) ->
   {M, F} = key(handler, Opts),
-  M:F(Status, Req).
+  {session, Session, SessionOpts} = lists:keyfind(session, 1, Opts),
+  Session2 = case Status of
+    {ok, Auth, Profile} ->
+      [{access_token, key(access_token, Auth)}, {profile, Profile}];
+    {error, _Reason} ->
+      undefined
+  end,
+  Req2 = cowboy_cookie_session:set_session(Session2, SessionOpts, Req),
+  M:F(Status, Req2).
 
 %%
 %%------------------------------------------------------------------------------
