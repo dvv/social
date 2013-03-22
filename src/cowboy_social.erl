@@ -32,7 +32,6 @@ terminate(_Reason, _Req, _State) ->
   ok.
 
 handle(Req, Opts) ->
-% pecypc_log:info({req, Opts}),
   % extract flow action name
   {Action, Req2} = cowboy_req:binding(action, Req),
   % perform flow action
@@ -40,7 +39,7 @@ handle(Req, Opts) ->
   {ok, Req3, undefined}.
 
 %%
-%% redirect to provider authorization page, expect it to redirect
+%% Redirect to provider authorization page, expect it to redirect
 %% to our next handler
 %%
 handle_request(<<"login">>, Req, Opts)  ->
@@ -49,7 +48,7 @@ handle_request(<<"login">>, Req, Opts)  ->
     ], <<>>, Req);
 
 %%
-%% provider redirected back to us with authorization code
+%% Provider redirected back to us with authorization code
 %%
 handle_request(<<"callback">>, Req, Opts) ->
   case cowboy_req:qs_val(<<"code">>, Req) of
@@ -65,28 +64,28 @@ handle_request(<<"callback">>, Req, Opts) ->
   end;
 
 %%
-%% catchall
+%% Catchall
 %%
 handle_request(_, Req, _) ->
   {ok, Req2} = cowboy_req:reply(404, [], <<>>, Req),
   {ok, Req2, undefined}.
 
 %%
-%% exchange authorization code for auth token
+%% Exchange authorization code for auth token
 %%
 get_access_token(Code, Req, Opts) ->
   {ok, Auth} = (key(provider, Opts)):get_access_token(Code, Opts),
   get_user_profile(Auth, Req, Opts).
 
 %%
-%% use auth token to extract info from user profile
+%% Use auth token to extract info from user profile
 %%
 get_user_profile(Auth, Req, Opts) ->
   {ok, Profile} = (key(provider, Opts)):get_user_profile(Auth, Opts),
   finish({ok, Auth, Profile}, Req, Opts).
 
 %%
-%% finalize application flow by calling callback handler
+%% Finalize application flow by calling callback handler
 %%
 finish(Status, Req, Opts) ->
   {M, F} = key(handler, Opts),
