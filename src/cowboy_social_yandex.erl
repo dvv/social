@@ -73,5 +73,10 @@ get_user_profile(Auth, _Opts) ->
 %%
 
 key(Key, List) ->
-  {_, Value} = lists:keyfind(Key, 1, List),
-  Value.
+  key(Key, List, <<>>).
+
+key(Key, List, Def) ->
+  case lists:keyfind(Key, 1, List) of
+    {_, Value} -> Value;
+    _ -> Def
+  end.

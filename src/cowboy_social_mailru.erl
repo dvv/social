@@ -82,8 +82,13 @@ get_user_profile(Auth, Opts) ->
 %%
 
 key(Key, List) ->
-  {_, Value} = lists:keyfind(Key, 1, List),
-  Value.
+  key(Key, List, <<>>).
+
+key(Key, List, Def) ->
+  case lists:keyfind(Key, 1, List) of
+    {_, Value} -> Value;
+    _ -> Def
+  end.
 
 md5hex(Bin) ->
   list_to_binary(lists:flatten([io_lib:format("~2.16.0b",[N]) ||

@@ -21,7 +21,7 @@ Router configuration
 {"/auth/google/:action", cowboy_social, [
   {provider, cowboy_social_google},
   % At the end of the flow this handler will be called as
-  % Mod:Fun({ok, Auth, Profile}, Req) or Mod:Fun({error, Reason}, Req)
+  % Mod:Fun({ok, Auth, Profile}, Req, State) or Mod:Fun({error, Reason}, Req, State)
   {handler, {Mod, Fun}},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},

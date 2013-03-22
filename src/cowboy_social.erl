@@ -15,21 +15,24 @@
 %%
 
 init(_Transport, Req, Opts) ->
-% pecypc_log:info({url, cowboy_req:get([path, qs_vals], Req)}),
   % compose full redirect URI
   case key(callback_uri, Opts) of
     << "http://", _/binary >> -> {ok, Req, Opts};
     << "https://", _/binary >> -> {ok, Req, Opts};
     Relative ->
-      {SelfUri, Req2} = cowboy_req:host_url(Req),
-      {ok, Req2, lists:keyreplace(callback_uri, 1, Opts,
-        {callback_uri, << SelfUri/binary, Relative/binary >>})}
+      {Headers, Req2} = cowboy_req:headers(Req),
+      % NB: we use X-Scheme custom header to honor proxies
+      {ok, Req2, lists:keyreplace(callback_uri, 1, Opts, {callback_uri,
+          << (key(<<"x-scheme">>, Headers, <<"http">>))/binary, "://",
+             (key(<<"host">>, Headers))/binary,
+             Relative/binary >>})}
   end.
 
 terminate(_Reason, _Req, _State) ->
   ok.
 
 handle(Req, Opts) ->
+% pecypc_log:info({req, Opts}),
   % extract flow action name
   {Action, Req2} = cowboy_req:binding(action, Req),
   % perform flow action
@@ -41,7 +44,6 @@ handle(Req, Opts) ->
 %% to our next handler
 %%
 handle_request(<<"login">>, Req, Opts)  ->
-% pecypc_log:info({login, cowboy_req:get([path, qs_vals], Req), Opts}),
   cowboy_req:reply(302, [
       {<<"location">>, (key(provider, Opts)):get_authorize_url(Opts)}
     ], <<>>, Req);
@@ -50,7 +52,6 @@ handle_request(<<"login">>, Req, Opts)  ->
 %% provider redirected back to us with authorization code
 %%
 handle_request(<<"callback">>, Req, Opts) ->
-% pecypc_log:info({callback, cowboy_req:get([path, qs_vals], Req), Opts}),
   case cowboy_req:qs_val(<<"code">>, Req) of
     {undefined, Req2} ->
       finish({error, nocode}, Req2, Opts);
@@ -89,15 +90,7 @@ get_user_profile(Auth, Req, Opts) ->
 %%
 finish(Status, Req, Opts) ->
   {M, F} = key(handler, Opts),
-  {session, Session, SessionOpts} = lists:keyfind(session, 1, Opts),
-  Session2 = case Status of
-    {ok, Auth, Profile} ->
-      [{access_token, key(access_token, Auth)}, {profile, Profile}];
-    {error, _Reason} ->
-      undefined
-  end,
-  Req2 = cowboy_cookie_session:set_session(Session2, SessionOpts, Req),
-  M:F(Status, Req2).
+  M:F(Status, Req, Opts).
 
 %%
 %%------------------------------------------------------------------------------
@@ -106,5 +99,10 @@ finish(Status, Req, Opts) ->
 %%
 
 key(Key, List) ->
-  {_, Value} = lists:keyfind(Key, 1, List),
-  Value.
+  key(Key, List, <<>>).
+
+key(Key, List, Def) ->
+  case lists:keyfind(Key, 1, List) of
+    {_, Value} -> Value;
+    _ -> Def
+  end.

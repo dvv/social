@@ -26,7 +26,8 @@ get_authorize_url(Opts)  ->
       {client_id, key(client_id, Opts)},
       {redirect_uri, key(callback_uri, Opts)},
       {response_type, <<"code">>},
-      {scope, key(scope, Opts)}
+      {scope, << "uid,first_name,last_name,sex,photo ",
+                 (key(scope, Opts))/binary >>}
     ]))/binary >>.
 
 %%
@@ -77,5 +78,10 @@ get_user_profile(Auth, Opts) ->
 %%
 
 key(Key, List) ->
-  {_, Value} = lists:keyfind(Key, 1, List),
-  Value.
+  key(Key, List, <<>>).
+
+key(Key, List, Def) ->
+  case lists:keyfind(Key, 1, List) of
+    {_, Value} -> Value;
+    _ -> Def
+  end.
