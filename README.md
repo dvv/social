@@ -18,6 +18,7 @@ Router configuration
 --------------
 
 ```erlang
+% Authorize via Google
 {"/auth/google/:action", cowboy_social, [
   {provider, cowboy_social_google},
   % At the end of the flow this handler will be called as
@@ -25,14 +26,30 @@ Router configuration
   {handler, {Mod, Fun}},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
-  {scope, <<"https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile">>},
+  {scope, <<>>}, % additional permissions
   {callback_uri, <<"/auth/google/callback">>}
+]}.
+
+% In case of compliant provider we can just tune provider
+{"/auth/good-provider/:action", cowboy_social, [
+  {provider, cowboy_social_generic},
+  {handler, {Mod, Fun}},
+  {client_id, <<"...">>},
+  {client_secret, <<"...">>},
+  {scope, <<>>}, % additional permissions
+  {callback_uri, <<"/auth/good-provider/callback">>},
+  % tune generic provider
+  {provider_name, <<"good-provider">>},
+  {authorize_url, <<"https://good.provider.org/oauth2/authorize">>},
+  {access_token_url, <<"https://good.provider.org/oauth2/access_token">>},
+  {profile_url, <<"https://good.provider.org/profile">>}
 ]}.
 ```
 
 Supported providers
 --------------
 - Facebook
+- Generic one (no separate module required, just some parameters for the handler)
 - Github
 - Google
 - Mail.ru

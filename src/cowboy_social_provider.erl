@@ -33,27 +33,11 @@ handle(Req, Opts) ->
 handle_request(<<"authorize">>, Req, Opts)  ->
   % extract parameters
   {Data, Req2} = cowboy_req:qs_vals(Req),
-  ClientId = key(<<"client_id">>, Data),
-  RedirectUri = key(<<"redirect_uri">>, Data),
-  % State = key(<<"state">>, Data),
-  Scope = key(<<"scope">>, Data),
-  % redirect URI fits the client?
-  case verify_redirection_uri(ClientId, RedirectUri) of
-    % yes
-    ok ->
-      % issue authorization code
-      State = nonce(),
-      Code = termit:encode_base64({State, ClientId, RedirectUri, Scope},
-                    key(code_secret, Opts)),
-      % show authorization form
-      {M, F} = key(authorization_form, Opts),
-      M:F(Code, RedirectUri, State, Req2);
-    % no
-    {error, mismatch} ->
-      % return error
-      cowboy_req:reply(302, [
-          {<<"location">>, << RedirectUri/binary, $?, "error=redirect_uri" >>}
-        ], Req2)
+  case lists:keyfind(<<"client_id">>, 1, Data) of
+    false ->
+      handle_flow(username_and_password, Data, Req2, Opts);
+    _ ->
+      handle_flow(client_id_and_secret, Data, Req2, Opts)
   end;
 
 %%
@@ -71,7 +55,7 @@ handle_request(<<"access_token">>, Req, Opts)  ->
   % decode token and ensure its validity
   % @todo State instead of _
   {ok, {_, ClientId, RedirectUri, Scope}} =
-      % NB: code is expired after code_ttl seconds after issued
+      % NB: code is expired after code_ttl seconds since issued
       termit:decode_base64(
           key(<<"code">>, Data),
           key(code_secret, Opts),
@@ -81,14 +65,7 @@ handle_request(<<"access_token">>, Req, Opts)  ->
   {ok, Identity, Scope2} =
       authorize_client_credentials(ClientId, ClientSecret, Scope),
   % respond with token
-  Token = termit:encode_base64({Identity, Scope2}, key(token_secret, Opts)),
-  cowboy_req:reply(200, [
-      {<<"content-type">>, <<"application/json">>}
-    ], jsx:encode([
-      {access_token, Token},
-      {token_type, <<"Bearer">>},
-      {expires_in, key(token_ttl, Opts)}
-    ]), Req2);
+  issue_token({Identity, Scope2}, Req2, Opts);
 
 %%
 %% Catchall
@@ -96,6 +73,44 @@ handle_request(<<"access_token">>, Req, Opts)  ->
 handle_request(_, Req, _) ->
   {ok, Req2} = cowboy_req:reply(404, [], <<>>, Req),
   {ok, Req2, undefined}.
+
+%%
+%% Request access code for a client.
+%%
+handle_flow(client_id_and_secret, Data, Req, Opts) ->
+  ClientId = key(<<"client_id">>, Data),
+  RedirectUri = key(<<"redirect_uri">>, Data),
+  % State = key(<<"state">>, Data),
+  Scope = key(<<"scope">>, Data),
+  % redirect URI fits the client?
+  case verify_redirection_uri(ClientId, RedirectUri) of
+    % yes
+    ok ->
+      % generate authorization code
+      State = nonce(),
+      Code = termit:encode_base64(
+          {State, ClientId, RedirectUri, Scope},
+          key(code_secret, Opts)),
+      % show authorization form
+      {M, F} = key(authorization_form, Opts),
+      M:F(Code, RedirectUri, State, Req);
+    % no
+    {error, mismatch} ->
+      % return error
+      cowboy_req:reply(302, [
+          {<<"location">>, << RedirectUri/binary, $?, "error=redirect_uri" >>}
+        ], Req)
+  end;
+
+%%
+%% Request access token for a user.
+%%
+handle_flow(username_and_password, Data, Req, Opts) ->
+  {ok, Identity, Scope} = authorize_username_password(
+      key(<<"username">>, Data),
+      key(<<"password">>, Data),
+      key(<<"scope">>, Data)),
+  issue_token({Identity, Scope}, Req, Opts).
 
 %%
 %%------------------------------------------------------------------------------
@@ -110,6 +125,16 @@ key(Key, List) ->
 nonce() ->
   base64:encode(crypto:strong_rand_bytes(16)).
 
+issue_token(Data, Req, Opts) ->
+  Token = termit:encode_base64(Data, key(token_secret, Opts)),
+  cowboy_req:reply(200, [
+      {<<"content-type">>, <<"application/json">>}
+    ], jsx:encode([
+      {access_token, Token},
+      {token_type, <<"Bearer">>},
+      {expires_in, key(token_ttl, Opts)}
+    ]), Req).
+
 %%
 %%------------------------------------------------------------------------------
 %% OAuth2 backend functions
@@ -117,8 +142,8 @@ nonce() ->
 %%
 
 % ok | {error, mismatch}
-% authorize_username_password(Username, _Password, Scope) ->
-%   {ok, {user, Username}, Scope}.
+authorize_username_password(Username, _Password, Scope) ->
+  {ok, {user, Username}, Scope}.
 
 % ok | {error, mismatch}
 authorize_client_credentials(ClientId, _ClientSecret, Scope) ->
