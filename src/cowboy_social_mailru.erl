@@ -6,54 +6,16 @@
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -export([
-    get_authorize_url/1,
-    get_access_token/2,
-    get_user_profile/2
+    user_profile/2
   ]).
-
-%%
-%%------------------------------------------------------------------------------
-%% OAUTH2 Application flow
-%%------------------------------------------------------------------------------
-%%
-
-%%
-%% get URL of provider authorization page
-%%
-get_authorize_url(Opts)  ->
-  << "https://connect.mail.ru/oauth/authorize", $?,
-    (cowboy_request:urlencode([
-      {client_id, key(client_id, Opts)},
-      {redirect_uri, key(callback_uri, Opts)},
-      {response_type, <<"code">>}
-    ]))/binary >>.
-
-%%
-%% exchange authorization code for auth token
-%%
-get_access_token(Code, Opts) ->
-  {ok, Auth} = cowboy_request:post_for_json(
-    <<"https://connect.mail.ru/oauth/token">>, [
-      {code, Code},
-      {client_id, key(client_id, Opts)},
-      {client_secret, key(client_secret, Opts)},
-      {redirect_uri, key(callback_uri, Opts)},
-      {grant_type, <<"authorization_code">>}
-    ]),
-  {ok, [
-    {access_token, key(<<"access_token">>, Auth)},
-    {token_type, key(<<"token_type">>, Auth)},
-    {expires_in, key(<<"expires_in">>, Auth)}
-  ]}.
 
 %%
 %% extract info from user profile
 %%
-get_user_profile(Auth, Opts) ->
+user_profile(Auth, Opts) ->
   Sig = md5hex(<<
       "app_id=", (key(client_id, Opts))/binary,
-      "method=users.getInfosecure=1session_key=",
-      (key(access_token, Auth))/binary,
+      "method=users.getInfosecure=1session_key=", Auth/binary,
       (key(secret_key, Opts))/binary >>),
   % NB: provider returns list of data for uids; we need only the first
   {ok, [Profile]} = cowboy_request:get_json(
@@ -61,18 +23,21 @@ get_user_profile(Auth, Opts) ->
       {app_id, key(client_id, Opts)},
       {method, <<"users.getInfo">>},
       {secure, <<"1">>},
-      {session_key, key(access_token, Auth)},
+      {session_key, Auth},
       {sig, Sig}
     ]),
+  % NB: {<<"error">>, _} means error occured
+  false = is_tuple(Profile),
   {ok, [
     {id, << "mailru:", (key(<<"uid">>, Profile))/binary >>},
     {provider, <<"mailru">>},
     {email, key(<<"email">>, Profile)},
     {name, << (key(<<"first_name">>, Profile))/binary, " ",
               (key(<<"last_name">>, Profile))/binary >>},
-    {avatar, key(<<"pic">>, Profile)},
+    {picture, key(<<"pic">>, Profile)},
     {gender, case key(<<"sex">>, Profile) of
-                1 -> <<"female">>; _ -> <<"male">> end}
+                1 -> <<"female">>; _ -> <<"male">> end},
+    {raw, Profile}
   ]}.
 
 %%
@@ -82,13 +47,8 @@ get_user_profile(Auth, Opts) ->
 %%
 
 key(Key, List) ->
-  key(Key, List, <<>>).
-
-key(Key, List, Def) ->
-  case lists:keyfind(Key, 1, List) of
-    {_, Value} -> Value;
-    _ -> Def
-  end.
+  {_, Value} = lists:keyfind(Key, 1, List),
+  Value.
 
 md5hex(Bin) ->
   list_to_binary(lists:flatten([io_lib:format("~2.16.0b",[N]) ||

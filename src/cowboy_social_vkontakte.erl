@@ -6,59 +6,22 @@
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -export([
-    get_authorize_url/1,
-    get_access_token/2,
-    get_user_profile/2
+    user_profile/2
   ]).
-
-%%
-%%------------------------------------------------------------------------------
-%% OAUTH2 Application flow
-%%------------------------------------------------------------------------------
-%%
-
-%%
-%% get URL of provider authorization page
-%%
-get_authorize_url(Opts)  ->
-  << "https://oauth.vk.com/authorize", $?,
-    (cowboy_request:urlencode([
-      {client_id, key(client_id, Opts)},
-      {redirect_uri, key(callback_uri, Opts)},
-      {response_type, <<"code">>},
-      {scope, << "uid,first_name,last_name,sex,photo ",
-                 (key(scope, Opts))/binary >>}
-    ]))/binary >>.
-
-%%
-%% exchange authorization code for auth token
-%%
-get_access_token(Code, Opts) ->
-  {ok, Auth} = cowboy_request:post_for_json(
-    <<"https://oauth.vk.com/access_token">>, [
-      {code, Code},
-      {client_id, key(client_id, Opts)},
-      {client_secret, key(client_secret, Opts)},
-      {redirect_uri, key(callback_uri, Opts)},
-      {grant_type, <<"authorization_code">>}
-    ]),
-  {ok, [
-    {access_token, key(<<"access_token">>, Auth)},
-    {token_type, <<"Bearer">>},
-    {expires_in, key(<<"expires_in">>, Auth)}
-  ]}.
 
 %%
 %% extract info from user profile
 %%
-get_user_profile(Auth, Opts) ->
+user_profile(Auth, Opts) ->
   {ok, Profiles} = cowboy_request:get_json(
     <<"https://api.vk.com/method/users.get">>, [
-      {access_token, key(access_token, Auth)},
-      {fields, key(scope, Opts)}
+      {access_token, Auth},
+      {fields, key(scope, Opts, <<"uid,first_name,last_name,sex,photo">>)}
     ]),
   % NB: provider returns list of data for uids; we need only the first
+  false = lists:keyfind(<<"error">>, 1, Profiles),
   [Profile] = key(<<"response">>, Profiles),
+pecypc_log:info({prof, Profile}),
   {ok, [
     {id, << "vkontakte:",
       (list_to_binary(integer_to_list(key(<<"uid">>, Profile))))/binary >>},
@@ -66,9 +29,10 @@ get_user_profile(Auth, Opts) ->
     % {email, key(<<"email">>, Profile)},
     {name, << (key(<<"first_name">>, Profile))/binary, " ",
               (key(<<"last_name">>, Profile))/binary >>},
-    {avatar, key(<<"photo">>, Profile)},
+    {picture, key(<<"photo">>, Profile)},
     {gender, case key(<<"sex">>, Profile) of
-                1 -> <<"female">>; _ -> <<"male">> end}
+                1 -> <<"female">>; _ -> <<"male">> end},
+    {raw, Profile}
   ]}.
 
 %%
@@ -78,7 +42,8 @@ get_user_profile(Auth, Opts) ->
 %%
 
 key(Key, List) ->
-  key(Key, List, <<>>).
+  {_, Value} = lists:keyfind(Key, 1, List),
+  Value.
 
 key(Key, List, Def) ->
   case lists:keyfind(Key, 1, List) of

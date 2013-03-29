@@ -6,21 +6,15 @@
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -export([
-    get_authorize_url/1,
-    get_access_token/2,
-    get_user_profile/2
+    % authorize/1,
+    % access_token/2,
+    user_profile/2
   ]).
-
-%%
-%%------------------------------------------------------------------------------
-%% OAUTH2 Application flow
-%%------------------------------------------------------------------------------
-%%
 
 %%
 %% get URL of provider authorization page
 %%
-get_authorize_url(Opts)  ->
+authorize(Opts)  ->
   << "https://accounts.google.com/o/oauth2/auth", $?,
     (cowboy_request:urlencode([
       {client_id, key(client_id, Opts)},
@@ -34,7 +28,7 @@ get_authorize_url(Opts)  ->
 %%
 %% exchange authorization code for auth token
 %%
-get_access_token(Code, Opts) ->
+access_token(Code, Opts) ->
   {ok, Auth} = cowboy_request:post_for_json(
     <<"https://accounts.google.com/o/oauth2/token">>, [
       {code, Code},
@@ -52,19 +46,21 @@ get_access_token(Code, Opts) ->
 %%
 %% extract info from user profile
 %%
-get_user_profile(Auth, _Opts) ->
+user_profile(Token, _Opts) ->
   {ok, Profile} = cowboy_request:get_json(
     <<"https://www.googleapis.com/oauth2/v1/userinfo">>, [
-      {access_token, key(access_token, Auth)}
+      {access_token, Token}
     ]),
+  false = lists:keyfind(<<"error">>, 1, Profile),
   {ok, [
     {id, << "google:", (key(<<"id">>, Profile))/binary >>},
     {provider, <<"google">>},
     {email, key(<<"email">>, Profile)},
     {name, key(<<"name">>, Profile)},
-    {avatar, key(<<"picture">>, Profile)},
+    {picture, key(<<"picture">>, Profile)},
     {gender, key(<<"gender">>, Profile)},
-    {locale, key(<<"locale">>, Profile)}
+    {locale, key(<<"locale">>, Profile)},
+    {raw, Profile}
   ]}.
 
 %%
@@ -74,10 +70,5 @@ get_user_profile(Auth, _Opts) ->
 %%
 
 key(Key, List) ->
-  key(Key, List, <<>>).
-
-key(Key, List, Def) ->
-  case lists:keyfind(Key, 1, List) of
-    {_, Value} -> Value;
-    _ -> Def
-  end.
+  {_, Value} = lists:keyfind(Key, 1, List),
+  Value.

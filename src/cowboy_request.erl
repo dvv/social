@@ -11,6 +11,7 @@
 -export([post_for_json/2]).
 -export([request/4]).
 -export([urlencode/1]).
+-export([make_uri/3]).
 
 -record(client, {
   state = wait :: wait | request | response | response_body,
@@ -39,7 +40,7 @@ request(Method, URL, Headers, Body) ->
       | Headers
     ], Body, Client),
   Result = case cowboy_client:response(Client2) of
-    {ok, 200, _ResHeaders, Client3} ->
+    {ok, _Status, _ResHeaders, Client3} ->
       case Client3#client.state of
         % @fixme dirty hack, reports only first read chunk
         request ->
@@ -47,6 +48,7 @@ request(Method, URL, Headers, Body) ->
         response_body ->
           case cowboy_client:response_body(Client3) of
             {ok, ResBody, _} ->
+              % @todo analyze Status
               {ok, ResBody};
             Else ->
               Else
@@ -54,30 +56,41 @@ request(Method, URL, Headers, Body) ->
       end;
     _Else ->
 % pecypc_log:info({reqerr, _Else}),
-      {error, failed}
+      {error, <<"server_error">>}
   end,
 % pecypc_log:info({res, Result}),
   Result.
+
+make_uri(Scheme, Host, Path) ->
+  << Scheme/binary, "://", Host/binary, Path/binary >>.
 
 urlencode(Bin) when is_binary(Bin) ->
   cowboy_http:urlencode(Bin);
 urlencode(Atom) when is_atom(Atom) ->
   urlencode(atom_to_binary(Atom, latin1));
+urlencode(Int) when is_integer(Int) ->
+  urlencode(list_to_binary(integer_to_list(Int)));
+urlencode({K, undefined}) ->
+  << (urlencode(K))/binary, $= >>;
+urlencode({K, V}) ->
+  << (urlencode(K))/binary, $=, (urlencode(V))/binary >>;
 urlencode(List) when is_list(List) ->
-  urlencode(List, <<>>).
-urlencode([], Acc) ->
-  Acc;
-urlencode([{K, V} | T], <<>>) ->
-  urlencode(T, << (urlencode(K))/binary, $=, (urlencode(V))/binary >>);
-urlencode([{K, V} | T], Acc) ->
-  urlencode(T, << Acc/binary, $&,
-    (urlencode(K))/binary, $=, (urlencode(V))/binary >>).
+  binary_join([urlencode(X) || X <- List], << $& >>).
+
+binary_join([], _Sep) ->
+  <<>>;
+binary_join([H], _Sep) ->
+  << H/binary >>;
+binary_join([H | T], Sep) ->
+  << H/binary, Sep/binary, (binary_join(T, Sep))/binary >>.
 
 parse({ok, JSON}) ->
   case jsx:decode(JSON, [{error_handler, fun(_, _, _) -> {error, badarg} end}])
   of
     {error, _} ->
       {ok, cowboy_http:x_www_form_urlencoded(JSON)};
+    {incomplete, _} ->
+      {ok, []};
     Hash ->
       {ok, Hash}
   end;
