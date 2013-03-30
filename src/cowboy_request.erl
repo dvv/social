@@ -33,23 +33,27 @@ request(Method, URL, Headers, Body) ->
   {ok, Client2} = cowboy_client:request(Method, URL, [
       {<<"connection">>, <<"close">>},
       {<<"accept-encoding">>, <<"identity">>},
+      % {<<"accept">>, <<"application/json, text/html">>},
       {<<"accept">>, <<"application/json">>},
+      {<<"content-type">>, <<"application/x-www-form-urlencoded">>},
       {<<"pragma">>, <<"no-cache">>},
       {<<"cache-control">>,
           <<"private, max-age: 0, no-cache, must-revalidate">>}
       | Headers
     ], Body, Client),
   Result = case cowboy_client:response(Client2) of
-    {ok, _Status, _ResHeaders, Client3} ->
+    {ok, Status, _ResHeaders, Client3} ->
       case Client3#client.state of
         % @fixme dirty hack, reports only first read chunk
         request ->
-          {ok, Client3#client.buffer};
+% pecypc_log:info({buffer, _Status, Client3}),
+          {ok, Status, Client3#client.buffer};
         response_body ->
           case cowboy_client:response_body(Client3) of
             {ok, ResBody, _} ->
+% pecypc_log:info({body, _Status, ResBody}),
               % @todo analyze Status
-              {ok, ResBody};
+              {ok, Status, ResBody};
             Else ->
               Else
           end
@@ -84,7 +88,7 @@ binary_join([H], _Sep) ->
 binary_join([H | T], Sep) ->
   << H/binary, Sep/binary, (binary_join(T, Sep))/binary >>.
 
-parse({ok, JSON}) ->
+parse(JSON) ->
   case jsx:decode(JSON, [{error_handler, fun(_, _, _) -> {error, badarg} end}])
   of
     {error, _} ->
@@ -93,16 +97,21 @@ parse({ok, JSON}) ->
       {ok, []};
     Hash ->
       {ok, Hash}
-  end;
-parse(_) ->
-  {error, badarg}.
+  end.
 
 get_json(URL, Data) ->
-  parse(request(<<"GET">>,
-    << URL/binary, $?,
-        (urlencode(Data))/binary >>, [], <<>>)).
+  case request(<<"GET">>, <<
+        URL/binary, $?, (urlencode(Data))/binary >>, [], <<>>)
+  of
+    {ok, 200, JSON} -> parse(JSON);
+    _ -> {error, badarg}
+  end.
 
 post_for_json(URL, Data) ->
-  parse(request(<<"POST">>, URL, [
+  case request(<<"POST">>, URL, [
       {<<"content-type">>, <<"application/x-www-form-urlencoded">>}
-    ], urlencode(Data))).
+    ], urlencode(Data))
+  of
+    {ok, 200, JSON} -> parse(JSON);
+    _ -> {error, badarg}
+  end.

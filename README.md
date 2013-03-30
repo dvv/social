@@ -18,45 +18,79 @@ Router configuration
 --------------
 
 ```erlang
-% Authorize via Google
+% Use :action binding
+{"/auth/facebook/:action", cowboy_social, [
+  {client_id, <<"...">>},
+  {client_secret, <<"...">>},
+  {callback_uri, <<"/auth/facebook/callback">>},
+  {scope, <<"email">>},
+  {authorize_uri, <<"https://www.facebook.com/dialog/oauth">>},
+  {token_uri, <<"https://graph.facebook.com/oauth/access_token">>}
+]},
+{"/auth/github/:action", cowboy_social, [
+  {client_id, <<"...">>},
+  {client_secret, <<"...">>},
+  {callback_uri, <<"/auth/github/callback">>},
+  {scope, <<>>},
+  {authorize_uri, <<"https://github.com/login/oauth/authorize">>},
+  {token_uri, <<"https://github.com/login/oauth/access_token">>}
+]},
 {"/auth/google/:action", cowboy_social, [
-  {provider, cowboy_social_google},
-  % At the end of the flow this handler will be called as
-  % Mod:Fun({ok, Auth, Profile}, Req, State) or Mod:Fun({error, Reason}, Req, State)
-  {handler, {Mod, Fun}},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
-  {scope, <<>>}, % additional permissions
-  {callback_uri, <<"/auth/google/callback">>}
-]}.
-
-% In case of compliant provider we can just tune provider
-{"/auth/good-provider/:action", cowboy_social, [
-  {provider, cowboy_social_generic},
-  {handler, {Mod, Fun}},
+  {callback_uri, <<"/auth/google/callback">>},
+  {scope, << "https://www.googleapis.com/auth/userinfo.email ",
+             "https://www.googleapis.com/auth/userinfo.profile" >>},
+  {authorize_uri, <<"https://accounts.google.com/o/oauth2/auth">>},
+  {token_uri, <<"https://accounts.google.com/o/oauth2/token">>}
+]},
+{"/auth/mailru/:action", cowboy_social, [
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
-  {scope, <<>>}, % additional permissions
-  {callback_uri, <<"/auth/good-provider/callback">>},
-  % tune generic provider
-  {provider_name, <<"good-provider">>},
-  {authorize_url, <<"https://good.provider.org/oauth2/authorize">>},
-  {access_token_url, <<"https://good.provider.org/oauth2/access_token">>},
-  {profile_url, <<"https://good.provider.org/profile">>}
+  {secret_key, <<"f431aea09762dbad13c2440955e12aee">>},
+  {callback_uri, <<"/auth/mailru/callback">>},
+  {scope, <<>>},
+  {authorize_uri, <<"https://connect.mail.ru/oauth/authorize">>},
+  {token_uri, <<"https://connect.mail.ru/oauth/token">>}
+]},
+{"/auth/paypal/:action", cowboy_social, [
+  {client_id, <<"...">>},
+  {client_secret, <<"...">>},
+  {callback_uri, <<"/auth/paypal/callback">>},
+  {scope, <<"https://identity.x.com/xidentity/resources/profile/me">>},
+  {authorize_uri, <<"https://identity.x.com/xidentity/resources/authorize">>},
+  {token_uri, <<"https://identity.x.com/xidentity/oauthtokenservice">>}
+]},
+{"/auth/vkontakte/:action", cowboy_social, [
+  {client_id, <<"...">>},
+  {client_secret, <<"...">>},
+  {callback_uri, <<"/auth/vkontakte/callback">>},
+  {scope, <<"uid,first_name,last_name,sex,photo">>},
+  {authorize_uri, <<"https://oauth.vk.com/authorize">>},
+  {token_uri, <<"https://oauth.vk.com/access_token">>}
+]},
+{"/auth/yandex/:action", cowboy_social, [
+  {client_id, <<"...">>},
+  {client_secret, <<"...">>},
+  {callback_uri, <<"/auth/yandex/callback">>},
+  {scope, <<>>},
+  {authorize_uri, <<"https://oauth.yandex.ru/authorize">>},
+  {token_uri, <<"https://oauth.yandex.ru/token">>}
 ]}.
 ```
 
 Supported providers
 --------------
 - Facebook
-- Generic one (no separate module required, just some parameters for the handler)
 - Github
 - Google
 - Mail.ru
 - PayPal
 - Vkontakte
 - Yandex
-- add more, this is very simple
+- Add more yourself -- this is very simple -- tune `scope`, `authorize_uri` and `token_uri` options.
+
+Please, consider to feedback here successful options you found for another providers.
 
 License (MIT)
 -------

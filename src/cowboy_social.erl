@@ -20,26 +20,16 @@
   ]).
 
 -record(state, {
-    provider,
     action,
     options
   }).
 
 init(_Transport, Req, Opts) ->
-  {Provider, Req2} = cowboy_req:binding(provider, Req),
-  {Action, Req3} = cowboy_req:binding(action, Req2, <<"login">>),
-  % @todo unknown provider
-  case lists:keyfind(Provider, 1, Opts) of
-    {_, ProviderOpts} ->
-      {upgrade, protocol, cowboy_rest, Req3, #state{
-          provider = Provider,
-          action = Action,
-          options = ProviderOpts
-        }};
-    false ->
-      {ok, Req4} = cowboy_req:reply(404, [], <<>>, Req3),
-      {shutdown, Req4, undefined}
-  end.
+  {Action, Req2} = cowboy_req:binding(action, Req, <<"login">>),
+  {upgrade, protocol, cowboy_rest, Req2, #state{
+      action = Action,
+      options = Opts
+    }}.
 
 terminate(_Reason, _Req, _State) ->
   ok.
@@ -106,7 +96,7 @@ get_json(Req, State) ->
 %%
 %% User agent initiates the flow.
 %%
-action(Req, #state{action = <<"login">>, provider = P, options = O}) ->
+action(Req, #state{action = <<"login">>, options = O}) ->
   {Type, Req2} = cowboy_req:qs_val(<<"response_type">>, Req, <<"code">>),
   {Opaque, Req3} = cowboy_req:qs_val(<<"state">>, Req2, <<>>),
   % redirect to provider authorization page
@@ -115,12 +105,11 @@ action(Req, #state{action = <<"login">>, provider = P, options = O}) ->
   %     {<<"location">>, Mod:authorize(Opts)}
   %   ], <<>>, Req3),
   % {halt, Req4, State};
-  redirect(key(authorize_url, O, authorize_url(P)), [
+  redirect(key(authorize_uri, O), [
       {client_id, key(client_id, O)},
       {redirect_uri, key(callback_uri, O)},
       {response_type, Type},
-      {scope, << (default_scope(P))/binary,
-                 (key(scope, O, <<>>))/binary >>},
+      {scope, key(scope, O)},
       {state, Opaque}
     ], Req3);
 
@@ -136,14 +125,14 @@ action(Req, State = #state{action = <<"callback">>}) ->
       {error, Error, Req2}
   end.
 
-check_code(Req, State = #state{provider = P, options = O}) ->
+check_code(Req, State = #state{options = O}) ->
   case cowboy_req:qs_val(<<"code">>, Req) of
     {undefined, Req2} ->
       check_token(Req2, State);
     {Code, Req2} ->
       %% Provider redirected back to the client with authorization code.
       %% Exchange authorization code for access token.
-      post(key(token_url, O, token_url(P)), [
+      post(key(token_uri, O), [
           {code, Code},
           {client_id, key(client_id, O)},
           {client_secret, key(client_secret, O)},
@@ -194,7 +183,6 @@ redirect(Uri, Params, Req) ->
 post(Url, Params, Req) ->
   try cowboy_request:post_for_json(Url, Params) of
     {ok, Auth} ->
-% pecypc_log:info({auth, Auth}),
       case lists:keyfind(<<"error">>, 1, Auth) of
         false ->
           {ok, [
@@ -222,55 +210,3 @@ key(Key, List, Def) ->
 
 keyreplace(Key, List, Value) ->
   lists:keyreplace(Key, 1, List, {Key, Value}).
-
-%%
-%%------------------------------------------------------------------------------
-%% Providers
-%%------------------------------------------------------------------------------
-%%
-
-authorize_url(<<"facebook">>) ->
-  <<"https://www.facebook.com/dialog/oauth">>;
-authorize_url(<<"github">>) ->
-  <<"https://github.com/login/oauth/authorize">>;
-authorize_url(<<"google">>) ->
-  <<"https://accounts.google.com/o/oauth2/auth">>;
-authorize_url(<<"mailru">>) ->
-  <<"https://connect.mail.ru/oauth/authorize">>;
-authorize_url(<<"paypal">>) ->
-  <<"https://identity.x.com/xidentity/resources/authorize">>;
-authorize_url(<<"vkontakte">>) ->
-  <<"https://oauth.vk.com/authorize">>;
-authorize_url(<<"yandex">>) ->
-  <<"https://oauth.yandex.ru/authorize">>;
-authorize_url(_) ->
-  undefined.
-
-token_url(<<"facebook">>) ->
-  <<"https://graph.facebook.com/oauth/access_token">>;
-token_url(<<"github">>) ->
-  <<"https://github.com/login/oauth/access_token">>;
-token_url(<<"google">>) ->
-  <<"https://accounts.google.com/o/oauth2/token">>;
-token_url(<<"mailru">>) ->
-  <<"https://connect.mail.ru/oauth/token">>;
-token_url(<<"paypal">>) ->
-  <<"https://identity.x.com/xidentity/oauthtokenservice">>;
-token_url(<<"vkontakte">>) ->
-  <<"https://oauth.vk.com/access_token">>;
-token_url(<<"yandex">>) ->
-  <<"https://oauth.yandex.ru/token">>;
-token_url(_) ->
-  undefined.
-
-default_scope(<<"facebook">>) ->
-  <<"email">>;
-default_scope(<<"google">>) ->
-  << "https://www.googleapis.com/auth/userinfo.email ",
-     "https://www.googleapis.com/auth/userinfo.profile" >>;
-default_scope(<<"paypal">>) ->
-  <<"https://identity.x.com/xidentity/resources/profile/me">>;
-default_scope(<<"vkontakte">>) ->
-  <<"uid,first_name,last_name,sex,photo">>;
-default_scope(_) ->
-  <<>>.

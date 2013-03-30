@@ -21,7 +21,6 @@ user_profile(Auth, Opts) ->
   % NB: provider returns list of data for uids; we need only the first
   false = lists:keyfind(<<"error">>, 1, Profiles),
   [Profile] = key(<<"response">>, Profiles),
-pecypc_log:info({prof, Profile}),
   {ok, [
     {id, << "vkontakte:",
       (list_to_binary(integer_to_list(key(<<"uid">>, Profile))))/binary >>},

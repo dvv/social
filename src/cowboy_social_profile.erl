@@ -19,20 +19,16 @@
   ]).
 
 -record(state, {
-    provider,
     action,
     options,
     token
   }).
 
 init(_Transport, Req, Opts) ->
-  {Provider, Req2} = cowboy_req:binding(provider, Req),
-  {Action, Req3} = cowboy_req:binding(action, Req2),
-  {_, ProviderOpts} = lists:keyfind(Provider, 1, Opts),
-  {upgrade, protocol, cowboy_rest, Req3, #state{
-      provider = Provider,
+  {Action, Req2} = cowboy_req:binding(action, Req, <<"login">>),
+  {upgrade, protocol, cowboy_rest, Req2, #state{
       action = Action,
-      options = ProviderOpts
+      options = Opts
     }}.
 
 terminate(_Reason, _Req, _State) ->
@@ -64,10 +60,12 @@ content_types_provided(Req, State) ->
     {{<<"application">>, <<"json">>, []}, get_json}
   ], Req, State}.
 
-get_json(Req, State = #state{
-    provider = Provider, action = Action, options = Opts, token = Token}) ->
+get_json(Req, State = #state{action = Action, options = Opts, token = Token}) ->
   % @fixme atoms are not purged!
-  Mod = binary_to_atom(<< "cowboy_social_", Provider/binary >>, latin1),
+  {_, Provider} = lists:keyfind(provider, 1, Opts),
+  Mod = binary_to_atom(<<
+        "cowboy_social_", (atom_to_binary(Provider, latin1))/binary
+      >>, latin1),
   Fun = binary_to_atom(Action, latin1),
   case Mod:Fun(Token, Opts) of
     {ok, Result} ->
