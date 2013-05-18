@@ -21,7 +21,7 @@
   timeout = 5000 :: timeout(), %% @todo Configurable.
   buffer = <<>> :: binary(),
   connection = keepalive :: keepalive | close,
-  version = {1, 1} :: cowboy_http:version(),
+  version = 'HTTP/1.1' :: cowboy_http:version(),
   response_body = undefined :: undefined | non_neg_integer()
 }).
 
@@ -29,7 +29,7 @@ request(Method, URL, Headers, Body) ->
 % pecypc_log:info({req, Method, URL, Body}),
   {ok, Client0} = cowboy_client:init([]),
   % NB: have to degrade protocol to not allow chunked responses
-  Client = Client0#client{version = {1, 0}},
+  Client = Client0#client{version = 'HTTP/1.0'},
   {ok, Client2} = cowboy_client:request(Method, URL, [
       {<<"connection">>, <<"close">>},
       {<<"accept-encoding">>, <<"identity">>},
