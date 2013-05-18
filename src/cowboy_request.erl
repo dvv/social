@@ -113,5 +113,5 @@ post_for_json(URL, Data) ->
     ], urlencode(Data))
   of
     {ok, 200, JSON} -> parse(JSON);
-    _ -> {error, badarg}
+    _Else -> {error, badarg}
   end.
