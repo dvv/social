@@ -63,11 +63,12 @@ content_types_provided(Req, State) ->
 get_json(Req, State = #state{action = Action, options = Opts, token = Token}) ->
   % @fixme atoms are not purged!
   {_, Provider} = lists:keyfind(provider, 1, Opts),
-  Mod = binary_to_atom(<<
-        "cowboy_social_", (atom_to_binary(Provider, latin1))/binary
-      >>, latin1),
-  Fun = binary_to_atom(Action, latin1),
-  case Mod:Fun(Token, Opts) of
+  case apply(
+      binary_to_atom(<<
+        "cowboy_social_", (atom_to_binary(Provider, latin1))/binary >>, latin1),
+      binary_to_atom(Action, latin1),
+      [Token, Opts])
+  of
     {ok, Result} ->
       {jsx:encode(Result), Req, State};
     {error, Error} ->
