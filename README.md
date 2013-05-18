@@ -92,6 +92,26 @@ Supported providers
 
 Please, consider to feedback here successful options you found for another providers.
 
+Suggested client side
+---------------
+```javascript
+function try_login(provider) {
+  var loginWindow = window.open('/auth/' + provider + '/login?flow=authorization_code', 'name', 'height=600,width=450');
+  var old_atoken = window.atoken;
+  var poller = setInterval(function () {
+    if (window.atoken !== old_atoken) {
+      clearInterval(poller);
+      old_atoken = window.atoken;
+      // use window.atoken.access_token hereafter to access secured resource
+      $.getJSON('/api/' + provider + '/user_profile', {access_token: old_atoken.access_token}, function (profile) {
+        // use social profile here
+        console.log(profile);
+      });
+    }
+  }, 200);
+}
+```
+
 License (MIT)
 -------
 
