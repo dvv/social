@@ -18,8 +18,11 @@ Router configuration
 --------------
 
 ```erlang
-% Use :action binding
+%
+% Handle authorization
+%
 {"/auth/facebook/:action", cowboy_social, [
+  {provider, facebook},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
   {callback_uri, <<"/auth/facebook/callback">>},
@@ -28,6 +31,7 @@ Router configuration
   {token_uri, <<"https://graph.facebook.com/oauth/access_token">>}
 ]},
 {"/auth/github/:action", cowboy_social, [
+  {provider, github},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
   {callback_uri, <<"/auth/github/callback">>},
@@ -36,6 +40,7 @@ Router configuration
   {token_uri, <<"https://github.com/login/oauth/access_token">>}
 ]},
 {"/auth/google/:action", cowboy_social, [
+  {provider, google},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
   {callback_uri, <<"/auth/google/callback">>},
@@ -45,6 +50,7 @@ Router configuration
   {token_uri, <<"https://accounts.google.com/o/oauth2/token">>}
 ]},
 {"/auth/mailru/:action", cowboy_social, [
+  {provider, mailru},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
   {secret_key, <<"f431aea09762dbad13c2440955e12aee">>},
@@ -54,6 +60,7 @@ Router configuration
   {token_uri, <<"https://connect.mail.ru/oauth/token">>}
 ]},
 {"/auth/paypal/:action", cowboy_social, [
+  {provider, paypal},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
   {callback_uri, <<"/auth/paypal/callback">>},
@@ -62,6 +69,7 @@ Router configuration
   {token_uri, <<"https://identity.x.com/xidentity/oauthtokenservice">>}
 ]},
 {"/auth/vkontakte/:action", cowboy_social, [
+  {provider, vkontakte},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
   {callback_uri, <<"/auth/vkontakte/callback">>},
@@ -70,6 +78,7 @@ Router configuration
   {token_uri, <<"https://oauth.vk.com/access_token">>}
 ]},
 {"/auth/yandex/:action", cowboy_social, [
+  {provider, yandex},
   {client_id, <<"...">>},
   {client_secret, <<"...">>},
   {callback_uri, <<"/auth/yandex/callback">>},

@@ -11,6 +11,7 @@
     terminate/3,
     rest_init/2,
     allowed_methods/2,
+    is_authorized/2,
     content_types_provided/2
   ]).
 
@@ -21,7 +22,8 @@
 
 -record(state, {
     action,
-    options
+    options,
+    token
   }).
 
 init(_Transport, Req, Opts) ->
@@ -55,6 +57,24 @@ rest_init(Req, State = #state{options = O}) ->
 
 allowed_methods(Req, State) ->
   {[<<"GET">>], Req, State}.
+
+%% NB: authorization is required for protected actions
+is_authorized(Req, State = #state{action = <<"user_profile">>}) ->
+  case cowboy_req:header(<<"authorization">>, Req) of
+    {<< "Bearer ", Bearer/binary >>, Req2} ->
+      {true, Req2, State#state{token = Bearer}};
+    {undefined, Req2} ->
+      case cowboy_req:qs_val(<<"access_token">>, Req2) of
+        {undefined, Req3} ->
+          {{false, <<"Bearer">>}, Req3, State};
+        {Token, Req3} ->
+          {true, Req3, State#state{token = Token}}
+      end;
+    {_, Req2} ->
+      {{false, <<"Bearer">>}, Req2, State}
+  end;
+is_authorized(Req, State) ->
+  {true, Req, State}.
 
 content_types_provided(Req, State) ->
   {[
@@ -123,6 +143,21 @@ action(Req, State = #state{action = <<"callback">>}) ->
       check_code(Req2, State);
     {Error, Req2} ->
       {error, Error, Req2}
+  end;
+
+action(Req, #state{action = Action, token = Token, options = O}) ->
+  % @fixme atoms are not purged!
+  {_, Provider} = lists:keyfind(provider, 1, O),
+  case apply(
+      binary_to_atom(<<
+        "cowboy_social_", (atom_to_binary(Provider, latin1))/binary >>, latin1),
+      binary_to_atom(Action, latin1),
+      [Token, O])
+  of
+    {ok, Result} ->
+      {ok, Result, Req};
+    {error, Error} ->
+      {error, Error, Req}
   end.
 
 check_code(Req, State = #state{options = O}) ->
