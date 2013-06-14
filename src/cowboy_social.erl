@@ -23,15 +23,24 @@
 -record(state, {
     action,
     options,
+    provider,
     token
   }).
 
 init(_Transport, Req, Opts) ->
-  {Action, Req2} = cowboy_req:binding(action, Req, <<"login">>),
-  {upgrade, protocol, cowboy_rest, Req2, #state{
-      action = Action,
-      options = Opts
-    }}.
+  {Provider, Req2} = cowboy_req:binding(provider, Req),
+  {Action, Req3} = cowboy_req:binding(action, Req2, <<"login">>),
+  case lists:keyfind(Provider, 1, Opts) of
+    false ->
+      {ok, Req4} = cowboy_req:reply(404, Req3),
+      {shutdown, Req4, undefined};
+    {_, O} ->
+      {upgrade, protocol, cowboy_rest, Req3, #state{
+          action = Action,
+          options = O,
+          provider = Provider
+        }}
+  end.
 
 terminate(_Reason, _Req, _State) ->
   ok.
@@ -120,11 +129,6 @@ action(Req, #state{action = <<"login">>, options = O}) ->
   {Type, Req2} = cowboy_req:qs_val(<<"response_type">>, Req, <<"code">>),
   {Opaque, Req3} = cowboy_req:qs_val(<<"state">>, Req2, <<>>),
   % redirect to provider authorization page
-  % Mod = binary_to_atom(<< "cowboy_social_", Provider/binary >>, latin1),
-  % {ok, Req4} = cowboy_req:reply(302, [
-  %     {<<"location">>, Mod:authorize(Opts)}
-  %   ], <<>>, Req3),
-  % {halt, Req4, State};
   redirect(key(authorize_uri, O), [
       {client_id, key(client_id, O)},
       {redirect_uri, key(callback_uri, O)},
@@ -145,12 +149,13 @@ action(Req, State = #state{action = <<"callback">>}) ->
       {error, Error, Req2}
   end;
 
-action(Req, #state{action = Action, token = Token, options = O}) ->
-  % @fixme atoms are not purged!
-  {_, Provider} = lists:keyfind(provider, 1, O),
+%%
+%% Protected actions.
+%%
+action(Req, #state{action = Action, token = Token, options = O,
+    provider = Provider}) ->
   case apply(
-      binary_to_atom(<<
-        "cowboy_social_", (atom_to_binary(Provider, latin1))/binary >>, latin1),
+      binary_to_atom(<< "cowboy_social_", Provider/binary >>, latin1),
       binary_to_atom(Action, latin1),
       [Token, O])
   of

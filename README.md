@@ -18,74 +18,66 @@ Router configuration
 --------------
 
 ```erlang
-%
-% Handle authorization
-%
-{"/auth/facebook/:action", cowboy_social, [
-  {provider, facebook},
-  {client_id, <<"...">>},
-  {client_secret, <<"...">>},
-  {callback_uri, <<"/auth/facebook/callback">>},
-  {scope, <<"email">>},
-  {authorize_uri, <<"https://www.facebook.com/dialog/oauth">>},
-  {token_uri, <<"https://graph.facebook.com/oauth/access_token">>}
-]},
-{"/auth/github/:action", cowboy_social, [
-  {provider, github},
-  {client_id, <<"...">>},
-  {client_secret, <<"...">>},
-  {callback_uri, <<"/auth/github/callback">>},
-  {scope, <<>>},
-  {authorize_uri, <<"https://github.com/login/oauth/authorize">>},
-  {token_uri, <<"https://github.com/login/oauth/access_token">>}
-]},
-{"/auth/google/:action", cowboy_social, [
-  {provider, google},
-  {client_id, <<"...">>},
-  {client_secret, <<"...">>},
-  {callback_uri, <<"/auth/google/callback">>},
-  {scope, << "https://www.googleapis.com/auth/userinfo.email ",
-             "https://www.googleapis.com/auth/userinfo.profile" >>},
-  {authorize_uri, <<"https://accounts.google.com/o/oauth2/auth">>},
-  {token_uri, <<"https://accounts.google.com/o/oauth2/token">>}
-]},
-{"/auth/mailru/:action", cowboy_social, [
-  {provider, mailru},
-  {client_id, <<"...">>},
-  {client_secret, <<"...">>},
-  {secret_key, <<"f431aea09762dbad13c2440955e12aee">>},
-  {callback_uri, <<"/auth/mailru/callback">>},
-  {scope, <<>>},
-  {authorize_uri, <<"https://connect.mail.ru/oauth/authorize">>},
-  {token_uri, <<"https://connect.mail.ru/oauth/token">>}
-]},
-{"/auth/paypal/:action", cowboy_social, [
-  {provider, paypal},
-  {client_id, <<"...">>},
-  {client_secret, <<"...">>},
-  {callback_uri, <<"/auth/paypal/callback">>},
-  {scope, <<"https://identity.x.com/xidentity/resources/profile/me">>},
-  {authorize_uri, <<"https://identity.x.com/xidentity/resources/authorize">>},
-  {token_uri, <<"https://identity.x.com/xidentity/oauthtokenservice">>}
-]},
-{"/auth/vkontakte/:action", cowboy_social, [
-  {provider, vkontakte},
-  {client_id, <<"...">>},
-  {client_secret, <<"...">>},
-  {callback_uri, <<"/auth/vkontakte/callback">>},
-  {scope, <<"uid,first_name,last_name,sex,photo">>},
-  {authorize_uri, <<"https://oauth.vk.com/authorize">>},
-  {token_uri, <<"https://oauth.vk.com/access_token">>}
-]},
-{"/auth/yandex/:action", cowboy_social, [
-  {provider, yandex},
-  {client_id, <<"...">>},
-  {client_secret, <<"...">>},
-  {callback_uri, <<"/auth/yandex/callback">>},
-  {scope, <<>>},
-  {authorize_uri, <<"https://oauth.yandex.ru/authorize">>},
-  {token_uri, <<"https://oauth.yandex.ru/token">>}
-]}.
+{"/auth/:provider/:action", cowboy_social, [
+    {<<"facebook">>, [
+      {client_id, <<"...">>},
+      {client_secret, <<"...">>},
+      {callback_uri, <<"/auth/facebook/callback">>},
+      {scope, <<"email">>},
+      {authorize_uri, <<"https://www.facebook.com/dialog/oauth">>},
+      {token_uri, <<"https://graph.facebook.com/oauth/access_token">>}
+    ]},
+    {<<"github">>, [
+      {client_id, <<"...">>},
+      {client_secret, <<"...">>},
+      {callback_uri, <<"/auth/github/callback">>},
+      {scope, <<>>},
+      {authorize_uri, <<"https://github.com/login/oauth/authorize">>},
+      {token_uri, <<"https://github.com/login/oauth/access_token">>}
+    ]},
+    {<<"google">>, [
+      {client_id, <<"...">>},
+      {client_secret, <<"...">>},
+      {callback_uri, <<"/auth/google/callback">>},
+      {scope, << "https://www.googleapis.com/auth/userinfo.email ",
+                 "https://www.googleapis.com/auth/userinfo.profile" >>},
+      {authorize_uri, <<"https://accounts.google.com/o/oauth2/auth">>},
+      {token_uri, <<"https://accounts.google.com/o/oauth2/token">>}
+    ]},
+    {<<"mailru">>, [
+      {client_id, <<"...">>},
+      {client_secret, <<"...">>},
+      {secret_key, <<"...">>},
+      {callback_uri, <<"/auth/mailru/callback">>},
+      {scope, <<>>},
+      {authorize_uri, <<"https://connect.mail.ru/oauth/authorize">>},
+      {token_uri, <<"https://connect.mail.ru/oauth/token">>}
+    ]},
+    {<<"paypal">>, [
+      {client_id, <<"...">>},
+      {client_secret, <<"...">>},
+      {callback_uri, <<"/auth/paypal/callback">>},
+      {scope, <<"https://identity.x.com/xidentity/resources/profile/me">>},
+      {authorize_uri, <<"https://identity.x.com/xidentity/resources/authorize">>},
+      {token_uri, <<"https://identity.x.com/xidentity/oauthtokenservice">>}
+    ]},
+    {<<"vkontakte">>, [
+      {client_id, <<"...">>},
+      {client_secret, <<"...">>},
+      {callback_uri, <<"/auth/vkontakte/callback">>},
+      {scope, <<"uid,first_name,last_name,sex,photo">>},
+      {authorize_uri, <<"https://oauth.vk.com/authorize">>},
+      {token_uri, <<"https://oauth.vk.com/access_token">>}
+    ]},
+    {<<"yandex">>, [
+      {client_id, <<"...">>},
+      {client_secret, <<"...">>},
+      {callback_uri, <<"/auth/yandex/callback">>},
+      {scope, <<>>},
+      {authorize_uri, <<"https://oauth.yandex.ru/authorize">>},
+      {token_uri, <<"https://oauth.yandex.ru/token">>}
+    ]}
+  ]}.
 ```
 
 Supported providers
@@ -112,7 +104,7 @@ function try_login(provider) {
       clearInterval(poller);
       old_atoken = window.atoken;
       // use window.atoken.access_token hereafter to access secured resource
-      $.getJSON('/api/' + provider + '/user_profile', {access_token: old_atoken.access_token}, function (profile) {
+      $.getJSON('/auth/' + provider + '/user_profile', {access_token: old_atoken.access_token}, function (profile) {
         // use social profile here
         console.log(profile);
       });
