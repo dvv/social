@@ -59,8 +59,17 @@ verify_token(Token, Req, State) ->
         false ->
 % pecypc_log:info({auth, Response}),
           Req2 = cowboy_req:set_resp_header(
-              <<"content-type">>, <<"application/json; charset=UTF-8">>, Req),
-          {halt, respond(200, jsx:encode(user_profile(Response)), Req2), State};
+              <<"content-type">>, <<"text/html; charset=UTF-8">>, Req),
+          Html = <<
+            "<script>",
+            "window.profile=", (jsx:encode(user_profile(Response)))/binary, ";",
+            "if(window.profile&&window.opener){",
+              "window.opener.profile=window.profile;"
+              "window.close();",
+            "}",
+            "</script>"
+            >>,
+          {halt, respond(200, Html, Req2), State};
         _ ->
           {halt, respond(500, key(<<"error_message">>, Response), Req), State}
       end;
