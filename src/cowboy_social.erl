@@ -172,13 +172,19 @@ check_code(Req, State = #state{options = O}) ->
     {Code, Req2} ->
       %% Provider redirected back to the client with authorization code.
       %% Exchange authorization code for access token.
-      post(key(token_uri, O), [
-          {code, Code},
-          {client_id, key(client_id, O)},
-          {client_secret, key(client_secret, O)},
-          {redirect_uri, key(callback_uri, O)},
-          {grant_type, <<"authorization_code">>}
-        ], Req2)
+      case post(key(token_uri, O), [
+               {code, Code},
+               {client_id, key(client_id, O)},
+               {client_secret, key(client_secret, O)},
+               {redirect_uri, key(callback_uri, O)},
+               {grant_type, <<"authorization_code">>}
+             ], Req2)
+      of
+        {ok, TokenProps, Req3} ->
+          execute_callbacks(TokenProps, Req3, State);
+        {error, Reason, Req3} ->
+          {error, Reason, Req3}
+      end
   end.
 
 check_token(Req, State) ->
@@ -192,6 +198,19 @@ check_token(Req, State) ->
           {access_token, Token},
           {token_type, TokenType}
         ], Req3}
+  end.
+
+execute_callbacks(TokenProps, Req, State = #state{options = O}) ->
+  execute_callbacks(TokenProps, Req, State, key(callback_hooks, O, [])).
+
+execute_callbacks(TokenProps, Req, _State, []) ->
+  {ok, TokenProps, Req};
+execute_callbacks(TokenProps, Req, State, [Hook | Rest]) ->
+  case Hook:execute(TokenProps, Req, State) of
+    {ok, TokenProps2, Req2, State2} ->
+      execute_callbacks(TokenProps2, Req2, State2, Rest);
+    {error, Error, Req, State} ->
+      {error, Error, Req}
   end.
 
 %%
