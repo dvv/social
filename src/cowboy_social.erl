@@ -144,7 +144,12 @@ action(Req, #state{action = <<"login">>, options = O}) ->
 action(Req, State = #state{action = <<"callback">>}) ->
   case cowboy_req:qs_val(<<"error">>, Req) of
     {undefined, Req2} ->
-      check_code(Req2, State);
+      case check_code(Req2, State) of
+        {ok, TokenProps, Req3} ->
+          execute_callbacks(TokenProps, Req3, State);
+        {error, Reason, Req3} ->
+          {error, Reason, Req3}
+      end;
     {Error, Req2} ->
       {error, Error, Req2}
   end;
@@ -172,19 +177,13 @@ check_code(Req, State = #state{options = O}) ->
     {Code, Req2} ->
       %% Provider redirected back to the client with authorization code.
       %% Exchange authorization code for access token.
-      case post(key(token_uri, O), [
-               {code, Code},
-               {client_id, key(client_id, O)},
-               {client_secret, key(client_secret, O)},
-               {redirect_uri, key(callback_uri, O)},
-               {grant_type, <<"authorization_code">>}
-             ], Req2)
-      of
-        {ok, TokenProps, Req3} ->
-          execute_callbacks(TokenProps, Req3, State);
-        {error, Reason, Req3} ->
-          {error, Reason, Req3}
-      end
+      post(key(token_uri, O), [
+          {code, Code},
+          {client_id, key(client_id, O)},
+          {client_secret, key(client_secret, O)},
+          {redirect_uri, key(callback_uri, O)},
+          {grant_type, <<"authorization_code">>}
+        ], Req2)
   end.
 
 check_token(Req, State) ->
@@ -246,7 +245,8 @@ post(Url, Params, Req) ->
         false ->
           {ok, [
               {access_token, key(<<"access_token">>, Auth)},
-              {token_type, key(<<"token_type">>, Auth, <<"bearer">>)}
+              {token_type, key(<<"token_type">>, Auth, <<"bearer">>)},
+              {refresh_token, key(<<"refresh_token">>, Auth, undefined)}
             ], Req};
         {_, Error} ->
           {error, Error, Req}
