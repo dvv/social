@@ -6,8 +6,8 @@
 -author('Vladimir Dronnikov <dronnikov@gmail.com>').
 
 -export([
-    % authorize/1,
-    % access_token/2,
+    authorize/1,
+    access_token/2,
     user_profile/2
   ]).
 
