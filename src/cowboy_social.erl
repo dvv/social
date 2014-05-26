@@ -144,7 +144,12 @@ action(Req, #state{action = <<"login">>, options = O}) ->
 action(Req, State = #state{action = <<"callback">>}) ->
   case cowboy_req:qs_val(<<"error">>, Req) of
     {undefined, Req2} ->
-      check_code(Req2, State);
+      case check_code(Req2, State) of
+        {ok, TokenProps, Req3} ->
+          execute_callbacks(TokenProps, Req3, State);
+        {error, Reason, Req3} ->
+          {error, Reason, Req3}
+      end;
     {Error, Req2} ->
       {error, Error, Req2}
   end;
@@ -194,6 +199,19 @@ check_token(Req, State) ->
         ], Req3}
   end.
 
+execute_callbacks(TokenProps, Req, State = #state{options = O}) ->
+  execute_callbacks(TokenProps, Req, State, key(callback_hooks, O, [])).
+
+execute_callbacks(TokenProps, Req, _State, []) ->
+  {ok, TokenProps, Req};
+execute_callbacks(TokenProps, Req, State, [Hook | Rest]) ->
+  case Hook:execute(TokenProps, Req, State) of
+    {ok, TokenProps2, Req2, State2} ->
+      execute_callbacks(TokenProps2, Req2, State2, Rest);
+    {error, Error, Req, State} ->
+      {error, Error, Req}
+  end.
+
 %%
 %% Provider redirected back to the client with access token in URI fragment.
 %% Fragment is stored in UA, this handler should provide UA with a script
@@ -227,7 +245,8 @@ post(Url, Params, Req) ->
         false ->
           {ok, [
               {access_token, key(<<"access_token">>, Auth)},
-              {token_type, key(<<"token_type">>, Auth, <<"bearer">>)}
+              {token_type, key(<<"token_type">>, Auth, <<"bearer">>)},
+              {refresh_token, key(<<"refresh_token">>, Auth, undefined)}
             ], Req};
         {_, Error} ->
           {error, Error, Req}
