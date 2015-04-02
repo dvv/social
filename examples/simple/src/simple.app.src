@@ -1,0 +1,13 @@
+{application, simple,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  social
+                 ]},
+  {mod, { simple_app, []}},
+  {env, []}
+ ]}.
